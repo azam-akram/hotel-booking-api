@@ -35,13 +35,21 @@ curl -i http://localhost:9000/healthcheck
 docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.up.sql
 ```
 
-##  Add test users
+##  Add test data
 
 ```
 docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/seed.sql
 ```
 
-## Dwon database schema
+##  Remove test data
+
+Removes all data and restarts ids, ready for seeding. The schema is kept.
+
+```
+docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/reset.sql
+```
+
+## Down database schema
 ```
 $ docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.down.sql
 DROP TABLE

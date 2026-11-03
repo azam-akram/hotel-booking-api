@@ -26,9 +26,13 @@ func New(svc BookingService, log *slog.Logger) *BookingHandler {
 	}
 }
 
-// FindHotels handles GET /hotels?name=
 func (h *BookingHandler) FindHotels(c *gin.Context) {
-	c.JSON(http.StatusOK, model.HotelListResponse{Hotels: []model.Hotel{}})
+	hotels, err := h.svc.FindHotels(c.Request.Context(), c.Query("name"))
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, model.HotelListResponse{Hotels: hotels})
 }
 
 // Health handles GET /healthcheck.

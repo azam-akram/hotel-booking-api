@@ -14,11 +14,13 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+              example: { status: ok }
         "503":
           description: Database unreachable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+              example: { status: unavailable }
   /v1/hotels:
     get:
       summary: Find hotels by name
@@ -43,12 +45,12 @@ components:
     Health:
       type: object
       properties:
-        status: { type: string, example: ok }
+        status: { type: string, enum: [ok, unavailable] }
     Hotel:
       type: object
       properties:
         id: { type: integer, format: int64, example: 1 }
-        name: { type: string, example: Grand Plaza Hotel }
+        name: { type: string, example: Grand Palace Hotel }
     HotelList:
       type: object
       properties:

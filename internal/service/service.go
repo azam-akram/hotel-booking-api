@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -35,6 +36,12 @@ func (s *Service) FindHotels(ctx context.Context, name string) ([]model.Hotel, e
 	if name == "" {
 		return nil, model.Invalidf("name must not be blank")
 	}
-
-	return []model.Hotel{}, nil
+	hotels, err := s.store.FindHotels(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(hotels) == 0 {
+		return nil, fmt.Errorf("%w: no hotel matches %q", model.ErrNotFound, name)
+	}
+	return hotels, nil
 }

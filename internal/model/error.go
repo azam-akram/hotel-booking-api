@@ -6,7 +6,14 @@ import (
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid input")
+	ErrNotFound            = errors.New("not found")
+	ErrRoomUnavailable     = errors.New("room is not available for the requested dates")
+	ErrOverCapacity        = errors.New("guests exceed room capacity")
+	ErrInvalidInput        = errors.New("invalid input")
+	ErrPayloadTooLarge     = errors.New("request body too large")
+	ErrIdempotencyMismatch = errors.New("idempotency key was used with a different request")
+	ErrDuplicateReference  = errors.New("booking reference already exists")
+	ErrDuplicateKey        = errors.New("idempotency key already exists")
 )
 
 const (

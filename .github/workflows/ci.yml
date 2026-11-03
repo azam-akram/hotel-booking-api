@@ -44,7 +44,9 @@ jobs:
           go-version-file: go.mod
 
       - name: Tidy up go modules
-        run: go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
 
       - name: Verify modules
         run: go mod verify

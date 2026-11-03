@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Hotel Booking API
+  version: 0.1.0
+servers:
+  - url: http://localhost:9000
+paths:
+  /healthcheck:
+    get:
+      summary: Check the API and database are reachable
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Database unreachable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /v1/hotels:
+    get:
+      summary: Find hotels by name
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        "200":
+          description: Matching hotels
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HotelList" }
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+    Hotel:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: Grand Plaza Hotel }
+    HotelList:
+      type: object
+      properties:
+        hotels:
+          type: array
+          items: { $ref: "#/components/schemas/Hotel" }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: invalid_input }
+            message: { type: string }

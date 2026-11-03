@@ -20,6 +20,10 @@ func newTestStore(t *testing.T) *Postgres {
 
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
+		// CI sets REQUIRE_DB so a lost variable fails the job instead of skipping.
+		if os.Getenv("REQUIRE_DB") != "" {
+			t.Fatal("TEST_DATABASE_URL not set but REQUIRE_DB is set")
+		}
 		t.Skip("TEST_DATABASE_URL not set; skipping Postgres integration test")
 	}
 

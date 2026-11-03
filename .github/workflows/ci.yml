@@ -54,7 +54,7 @@ jobs:
         run: go build -o /dev/null ./...
 
   test:
-    name: test
+    name: test (unit)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -71,3 +71,38 @@ jobs:
 
       - name: Run tests
         run: go test -race ./... -v
+
+  integration:
+    name: test (integration)
+    needs: [lint, build, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: roomuser
+          POSTGRES_PASSWORD: password1
+          POSTGRES_DB: roomdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U roomuser -d roomdb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      REQUIRE_DB: "true" # fail, if the database variable is missing
+      TEST_DATABASE_URL: postgres://roomuser:password1@localhost:5432/roomdb?sslmode=disable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: go test -race -count=1 -v ./internal/store/
+

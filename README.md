@@ -38,46 +38,109 @@ Example, `GET /v1/hotels?name=grand`:
 3. The store searches `hotels` for names containing the text, ignoring case.
 4. No rows becomes "not found" and a `404`. Otherwise the handler returns `200` with `{"hotels": [...]}`.
 
-## run locally
+## Run locally
 
-Run postgresql db in docker container
+You need Go (the version in `go.mod`) and Docker.
+
+1. Start Postgres in a container:
+
+   ```
+   docker compose up -d postgres
+   ```
+
+2. Run the app:
+
+   ```
+   go run ./cmd
+   ```
+
+   On startup the app creates the tables itself (it applies the files in `internal/db/migrations`), so there is no separate "create tables" step. The app exits with an error if it can't reach the database.
+
+3. Check that it works:
+
+   ```
+   curl -i http://localhost:9000/healthcheck
+   ```
+
+   You should get `200` and `{"status":"ok"}`. If Postgres is down, you get `503` and `{"status":"unavailable"}`.
+
+### Try the API in Swagger
+
+Open http://localhost:9000/docs, pick an endpoint, click **Try it out** and then **Execute**. The raw spec is at http://localhost:9000/openapi.yml.
+
+Or use curl, after adding test data (see below):
+
 ```
-docker compose up -d postgres
+curl "http://localhost:9000/v1/hotels?name=grand"
 ```
 
-and then run app
+### Settings
 
-```
-go run ./cmd
-```
+The app works without any setup. To change something, set an environment variable:
 
-check health
-```
-curl -i http://localhost:9000/healthcheck
-```
+| Variable | Default | Meaning |
+|---|---|---|
+| `PORT` | `9000` | Port the API listens on |
+| `DATABASE_URL` | `postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable` | Postgres connection string. The default matches `docker-compose.yml` |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` or `ERROR` |
 
-## Create the tables
-```
-docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.up.sql
-```
+### Add test data
 
-##  Add test data
+Start the app once first, so the tables exist. Then:
 
 ```
 docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/seed.sql
 ```
 
-##  Remove test data
+### Remove test data
 
-Removes all data and restarts ids, ready for seeding. The schema is kept.
+Removes all data and restarts ids, ready for seeding. The tables are kept.
 
 ```
 docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/reset.sql
 ```
 
-## Drop database schema
+### Start again from an empty database
+
+The simplest way is to delete the database volume. This removes all data. The next `go run ./cmd` creates the tables again.
+
 ```
-$ docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.down.sql
+docker compose down -v
+docker compose up -d postgres
+```
+
+Please don't run `internal/db/migrations/000001_schema.down.sql` by hand to do this. It drops the tables but leaves the app's `schema_migrations` record saying they exist, so the app would skip creating them again.
+
+### Database admin UI (optional)
+
+`docker compose up -d` also starts pgAdmin at http://localhost:5050 (login `admin@example.com` / `admin`, local use only). Postgres is on port `5433` from your machine, and `5432` from inside Docker.
+
+## Before you push
+
+Run these from the project root, in this order. They are the same checks CI runs, so if they pass here they should pass there.
+
+```
+go mod tidy
+go mod vendor
+go vet ./...
+golangci-lint run ./...
+go test ./...
+```
+
+What each one is for:
+
+| Command | Why |
+|---|---|
+| `go mod tidy` | Removes unused dependencies and adds missing ones. CI fails if this changes `go.mod` or `go.sum`, so commit those files if they change. |
+| `go mod vendor` | Refreshes the `vendor/` folder to match `go.mod`. Run it whenever you add or remove a dependency, and commit the result. |
+| `go vet ./...` | Catches suspicious code that compiles but is probably wrong. |
+| `golangci-lint run ./...` | Runs the linters. It only reports problems and doesn't change your files. On Windows the command is `golangci-lint.exe`, though plain `golangci-lint` usually works too. |
+| `go test ./...` | Runs the unit tests. The store tests are skipped unless a database is set up, see [Tests](#tests). |
+
+Install the linter with the same version CI uses (`v2.14.0` in `ci.yml`):
+
+```
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 ```
 
 ## Tests
@@ -153,3 +216,40 @@ What it checks:
 - a closed connection returns an error
 
 Why: the SQL is the part most likely to be wrong, and only a real database can tell us. Keeping it separate from the unit tests means the fast tests stay fast.
+
+
+## CI pipeline
+
+Every push to `master` and every pull request runs the GitHub Actions workflow in `.github/workflows/ci.yml`.
+
+```
+lint ─┐
+build ┼─> test (integration)
+test ─┘
+```
+
+`test` here is the unit test job. The three jobs on the left are quick and don't depend on each other, so they start at the same time.
+
+### How it works
+
+- **Cheap checks first.** Lint, build and unit tests are fast. They run in parallel and fail fast, so if you break something you see all the problems in one go, not one at a time.
+- **Integration waits for them.** The integration job starts a real Postgres container, which is the slowest and most expensive part. It only runs once lint, build and the unit tests have passed. There is no point paying for a database on a commit that doesn't even compile.
+
+### What each job does
+
+| Job | What it does |
+|---|---|
+| `lint` | Runs `golangci-lint` |
+| `build` | Checks `go mod tidy` leaves no changes, verifies modules, and builds everything |
+| `test` | Runs `go vet` and the unit tests with `-race` |
+| `test (integration)` | Starts Postgres 17 and runs the store tests against it |
+
+### Why not one long chain?
+
+We could run `build -> lint -> test -> integration` one after another, but it would be slower and wouldn't catch anything extra. These jobs don't use each other's output, so waiting on each other only adds time. Also, if lint failed early, you wouldn't hear about a failing test until the next push.
+
+A strict chain makes sense when a job really needs what the previous one made, for example a deploy job that uses a Docker image built earlier. We don't have that yet.
+
+### A trap we guard against
+
+The store tests skip themselves when `TEST_DATABASE_URL` is not set, which is handy on a laptop with no database. In CI that would be dangerous: if the variable got lost, the job would go green without testing anything. So the integration job fails if any test was skipped.

@@ -24,6 +24,11 @@ type fakeService struct {
 
 func (f fakeService) Ping(context.Context) error { return nil }
 
+// AvailableRooms is not exercised by these tests; it only satisfies BookingService.
+func (f fakeService) AvailableRooms(context.Context, int64, model.AvailabilityQuery) (model.AvailableRoomsResponse, error) {
+	return model.AvailableRoomsResponse{}, nil
+}
+
 func (f fakeService) FindHotels(ctx context.Context, name string) ([]model.Hotel, error) {
 	return f.findHotels(ctx, name)
 }

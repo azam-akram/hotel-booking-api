@@ -29,3 +29,20 @@ check health
 ```
 curl -i http://localhost:9000/healthcheck
 ```
+
+## Create the tables
+```
+docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.up.sql
+```
+
+##  Add test users
+
+```
+docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/seed.sql
+```
+
+## Dwon database schema
+```
+$ docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/migrations/000001_schema.down.sql
+DROP TABLE
+```

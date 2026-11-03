@@ -11,7 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/azam-akram/hotel-booking-api/internal/db"
 	"github.com/azam-akram/hotel-booking-api/internal/handler"
+	"github.com/azam-akram/hotel-booking-api/internal/service"
+	"github.com/azam-akram/hotel-booking-api/internal/store"
 )
 
 const (
@@ -36,8 +39,20 @@ func run(cfg config, log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	h := handler.NewBookHandler(log)
+	if err := db.Migrate(cfg.databaseURL); err != nil {
+		return err
+	}
 
+	pool, err := openDatabase(ctx, cfg.databaseURL, log)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	postgres := store.New(pool)
+	svc := service.New(postgres, log)
+
+	h := handler.New(svc, log)
 	server := &http.Server{
 		Addr:              ":" + cfg.port,
 		Handler:           handler.NewRouter(h, log),
@@ -66,7 +81,7 @@ func run(cfg config, log *slog.Logger) error {
 	// Give the server 10 seconds to finish active requests during shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	err := server.Shutdown(shutdownCtx)
+	err = server.Shutdown(shutdownCtx)
 
 	if err != nil {
 		return fmt.Errorf("shutdown: %w", err)

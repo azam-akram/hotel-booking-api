@@ -3,18 +3,23 @@ package main
 import (
 	"log/slog"
 	"os"
+	"strings"
 )
 
 const defaultPort = "9000"
 
 type config struct {
-	port     string
-	logLevel slog.Level
+	port        string
+	databaseURL string
+	logLevel    slog.Level
 }
+
+const defaultDatabaseURL = "postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable"
 
 func loadConfig() config {
 	cfg := config{
-		port: getenv("PORT", defaultPort),
+		port:        getenv("PORT", defaultPort),
+		databaseURL: getenv("DATABASE_URL", defaultDatabaseURL),
 	}
 	logLevel := getenv("LOG_LEVEL", "INFO")
 
@@ -27,7 +32,7 @@ func loadConfig() config {
 }
 
 func getenv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return fallback

@@ -1,5 +1,14 @@
 package model
 
+import (
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrInvalidInput = errors.New("invalid input")
+)
+
 const (
 	CodeInvalidInput        = "invalid_input"
 	CodeNotFound            = "not_found"
@@ -18,4 +27,9 @@ type ErrorResponse struct {
 type ErrorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// Invalidf returns an error that wraps ErrInvalidInput with a formatted detail.
+func Invalidf(format string, args ...any) error {
+	return fmt.Errorf("%w: %s", ErrInvalidInput, fmt.Sprintf(format, args...))
 }

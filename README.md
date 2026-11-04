@@ -11,6 +11,22 @@ It lets a consumer
 
 Built with the Gin framework and PostgreSQL, and it runs with Docker Compose. Double bookings are prevented by the database. Each new booking starts a background goroutine that waits 2 seconds and then logs a message, to simulate sending a confirmation email.
 
+## What this API doesn't have
+
+This is a coding challenge, not a production system. These are the things I left out on purpose, and what a real version would need:
+
+- **Authentication and authorization.** The brief says no authentication is needed, so every endpoint is open. That includes `POST /v1/admin/reset`, which deletes all data. A production API should be protected in several layers (for example tokens, roles, and keeping admin endpoints off the public network), and the admin endpoints should not exist there at all. `ENABLE_ADMIN=false` switches them off.
+- **Security headers.** Responses don't carry the recommended HTTP security headers. A production API should follow the [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+- **HTTPS.** The app speaks plain HTTP. In production it would sit behind a proxy or load balancer that handles TLS.
+- **Rate limiting.** Nothing stops a client from sending a flood of requests.
+- **Paging.** List responses, such as hotels and available rooms, return every match at once. This is fine for a handful of hotels, but production APIs need paging.
+- **HAL links.** Responses don't include links (for example from a booking to its room or hotel), so clients can't discover what they can do next from the response alone.
+- **Changing or cancelling a booking.** You can create a booking and read it back, but there is no way to update or cancel it.
+- **A real confirmation email.** The email is only a log line after 2 seconds. A real one would use a queue with retries, so an email isn't lost if the server stops while it is waiting.
+- **Cleaning up idempotency keys.** A key is kept forever. Real systems expire them after some time.
+- **Metrics and tracing.** There is structured logging and a health check, but no metrics or distributed tracing.
+- **Real secrets.** The database password in `docker-compose.yml` and the pgAdmin login are for local use only. A real deployment would load secrets from a secret store.
+
 ## Use of AI
 
 I wrote the foundation of this project myself. This is visible in the git history. It includes:

@@ -35,6 +35,14 @@ func (f fakeService) CreateBooking(ctx context.Context, req model.BookingRequest
 	return f.createBooking(ctx, req, key)
 }
 
+func (f fakeService) Seed(ctx context.Context) error {
+	return nil
+}
+
+func (f fakeService) Reset(ctx context.Context) error {
+	return nil
+}
+
 func TestCreateBooking(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

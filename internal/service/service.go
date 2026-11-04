@@ -21,6 +21,8 @@ const (
 
 type Store interface {
 	Ping(ctx context.Context) error
+	Seed(ctx context.Context) error
+	Reset(ctx context.Context) error
 	FindHotels(ctx context.Context, name string) ([]model.Hotel, error)
 	GetHotel(ctx context.Context, id int64) (model.Hotel, error)
 	GetRoom(ctx context.Context, hotelID, roomID int64) (model.Room, error)
@@ -157,6 +159,16 @@ func (s *Service) CreateBooking(ctx context.Context, req model.BookingRequest, i
 		return model.BookingResponse{Booking: b}, nil
 	}
 	return model.BookingResponse{}, errors.New("could not generate a unique booking reference")
+}
+
+// Seed inserts the test data.
+func (s *Service) Seed(ctx context.Context) error {
+	return s.store.Seed(ctx)
+}
+
+// Reset removes all data.
+func (s *Service) Reset(ctx context.Context) error {
+	return s.store.Reset(ctx)
 }
 
 // GetBooking finds a booking by reference. References are stored in upper

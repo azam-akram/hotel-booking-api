@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -12,11 +14,12 @@ type config struct {
 	port        string
 	databaseURL string
 	logLevel    slog.Level
+	enableAdmin bool
 }
 
 const defaultDatabaseURL = "postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable"
 
-func loadConfig() config {
+func loadConfig() (config, error) {
 	cfg := config{
 		port:        getenv("PORT", defaultPort),
 		databaseURL: getenv("DATABASE_URL", defaultDatabaseURL),
@@ -28,7 +31,12 @@ func loadConfig() config {
 		cfg.logLevel = slog.LevelInfo
 	}
 
-	return cfg
+	var err error
+	if cfg.enableAdmin, err = strconv.ParseBool(getenv("ENABLE_ADMIN", "true")); err != nil {
+		return config{}, fmt.Errorf("ENABLE_ADMIN: %w", err)
+	}
+
+	return cfg, nil
 }
 
 func getenv(key, fallback string) string {

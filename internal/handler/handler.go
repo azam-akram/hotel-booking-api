@@ -17,6 +17,8 @@ const maxBodyBytes = 1 << 20 // 1 MiB
 
 type BookingService interface {
 	Ping(ctx context.Context) error
+	Seed(ctx context.Context) error
+	Reset(ctx context.Context) error
 	FindHotels(ctx context.Context, name string) ([]model.Hotel, error)
 	AvailableRooms(ctx context.Context, hotelID int64, q model.AvailabilityQuery) (model.AvailableRoomsResponse, error)
 	CreateBooking(ctx context.Context, req model.BookingRequest, idempotencyKey string) (model.BookingResponse, error)
@@ -123,4 +125,22 @@ func (h *BookingHandler) GetBooking(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, b)
+}
+
+// Seed handles POST /admin/seed. Test-only.
+func (h *BookingHandler) Seed(c *gin.Context) {
+	if err := h.svc.Seed(c.Request.Context()); err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.Status(http.StatusCreated)
+}
+
+// Reset handles POST /admin/reset. Test-only.
+func (h *BookingHandler) Reset(c *gin.Context) {
+	if err := h.svc.Reset(c.Request.Context()); err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

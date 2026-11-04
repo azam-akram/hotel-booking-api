@@ -51,6 +51,14 @@ func (f *fakeStore) GetBooking(context.Context, string) (model.Booking, error) {
 	return model.Booking{}, nil
 }
 
+func (f *fakeStore) Seed(ctx context.Context) error {
+	return nil
+}
+
+func (f *fakeStore) Reset(ctx context.Context) error {
+	return nil
+}
+
 func TestCreateBooking(t *testing.T) {
 	now := time.Date(2030, 1, 1, 12, 0, 0, 0, time.UTC)
 	checkIn, _ := time.Parse("2006-01-02", "2030-02-10")

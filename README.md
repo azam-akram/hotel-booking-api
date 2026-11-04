@@ -54,6 +54,16 @@ You need Go (the version in `go.mod`) and Docker.
    go run ./cmd
    ```
 
+   To change the log level or turn the admin endpoints on or off, set the variables first (see [Settings](#settings)):
+
+   ```
+   # Git Bash / macOS / Linux
+   LOG_LEVEL=DEBUG ENABLE_ADMIN=true go run ./cmd
+
+   # PowerShell
+   $env:LOG_LEVEL = "DEBUG"; $env:ENABLE_ADMIN = "true"; go run ./cmd
+   ```
+
    On startup the app creates the tables itself (it applies the files in `internal/db/migrations`), so there is no separate "create tables" step. The app exits with an error if it can't reach the database.
 
 3. Check that it works:
@@ -83,6 +93,7 @@ The app works without any setup. To change something, set an environment variabl
 | `PORT` | `9000` | Port the API listens on |
 | `DATABASE_URL` | `postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable` | Postgres connection string. The default matches `docker-compose.yml` |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` or `ERROR` |
+| `ENABLE_ADMIN` | `true` | `true` or `false`. Turns on `POST /v1/admin/seed` (add test data) and `POST /v1/admin/reset` (delete all data). Set it to `false` anywhere real data lives. The app won't start if the value isn't a valid true/false |
 
 ### Add test data
 

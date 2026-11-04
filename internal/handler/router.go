@@ -10,7 +10,7 @@ import (
 
 const apiPrefix = "/v1"
 
-func NewRouter(h *BookingHandler, log *slog.Logger) *gin.Engine {
+func NewRouter(h *BookingHandler, log *slog.Logger, enableAdmin bool) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -34,6 +34,12 @@ func NewRouter(h *BookingHandler, log *slog.Logger) *gin.Engine {
 	v1.GET("/hotels/:hotelId/rooms/available", h.AvailableRooms)
 	v1.POST("/bookings", h.CreateBooking)
 	v1.GET("/bookings/:reference", h.GetBooking)
+
+	if enableAdmin {
+		admin := v1.Group("/admin")
+		admin.POST("/seed", h.Seed)
+		admin.POST("/reset", h.Reset)
+	}
 
 	return r
 }

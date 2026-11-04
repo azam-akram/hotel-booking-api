@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/azam-akram/hotel-booking-api/internal/db"
 	"github.com/azam-akram/hotel-booking-api/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -191,6 +192,22 @@ func (p *Postgres) GetBooking(ctx context.Context, reference string) (model.Book
 		return model.Booking{}, fmt.Errorf("get booking: %w", err)
 	}
 	return b, nil
+}
+
+// Seed runs db/migrations/seed.sql. It is safe to run repeatedly.
+func (p *Postgres) Seed(ctx context.Context) error {
+	if _, err := p.pool.Exec(ctx, db.Seed()); err != nil {
+		return fmt.Errorf("seed: %w", err)
+	}
+	return nil
+}
+
+// Reset runs db/migrations/reset.sql, removing all data but keeping the schema.
+func (p *Postgres) Reset(ctx context.Context) error {
+	if _, err := p.pool.Exec(ctx, db.Reset()); err != nil {
+		return fmt.Errorf("reset: %w", err)
+	}
+	return nil
 }
 
 func scanBooking(row pgx.Row) (model.Booking, string, error) {

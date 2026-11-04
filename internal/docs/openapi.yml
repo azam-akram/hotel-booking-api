@@ -88,13 +88,13 @@ paths:
       description: >
         Books one room for the whole stay. The database refuses overlapping
         stays, so two guests can never get the same room on the same night.
-        Send an Idempotency-Key to make retries safe: repeating the same
-        request returns the first booking, and the confirmation email is sent
-        only once.
+        The Idempotency-Key header is required, which makes retries safe:
+        repeating the same request returns the first booking, and the
+        confirmation email is sent only once.
       parameters:
         - name: Idempotency-Key
           in: header
-          required: false
+          required: true
           description: Any unique text, at most 255 characters. Use a new one for each new booking.
           schema: { type: string, maxLength: 255, example: 6b1f0c2e-booking-1 }
       requestBody:
@@ -118,7 +118,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Booking" }
         "400":
-          description: Invalid JSON, field or dates
+          description: Missing Idempotency-Key header, invalid JSON, field or dates
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

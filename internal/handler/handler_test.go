@@ -45,6 +45,7 @@ func TestCreateBooking(t *testing.T) {
 
 	tests := []struct {
 		name         string
+		noKey        bool // send the request without an Idempotency-Key
 		svcErr       error
 		wantStatus   int
 		wantLocation string
@@ -54,6 +55,12 @@ func TestCreateBooking(t *testing.T) {
 			name:         "creates a booking",
 			wantStatus:   http.StatusCreated,
 			wantLocation: "/v1/bookings/ABCD2345",
+		},
+		{
+			name:       "missing Idempotency-Key",
+			noKey:      true,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   model.CodeInvalidInput,
 		},
 		{
 			name:       "room already booked",
@@ -78,6 +85,9 @@ func TestCreateBooking(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/v1/bookings", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
+			if !tt.noKey {
+				req.Header.Set("Idempotency-Key", "test-key-1")
+			}
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 

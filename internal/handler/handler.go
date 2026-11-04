@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/azam-akram/hotel-booking-api/internal/model"
 	"github.com/gin-gonic/gin"
@@ -79,6 +80,12 @@ func (h *BookingHandler) AvailableRooms(c *gin.Context) {
 
 // CreateBooking handles POST /v1/bookings
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
+	key := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if key == "" {
+		h.respondError(c, model.Invalidf("Idempotency-Key header is required"))
+		return
+	}
+
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
 
 	var req model.BookingRequest
@@ -93,7 +100,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		return
 	}
 
-	res, err := h.svc.CreateBooking(c.Request.Context(), req, c.GetHeader("Idempotency-Key"))
+	res, err := h.svc.CreateBooking(c.Request.Context(), req, key)
 	if err != nil {
 		h.respondError(c, err)
 		return

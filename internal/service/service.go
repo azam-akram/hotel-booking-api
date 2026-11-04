@@ -13,6 +13,10 @@ import (
 )
 
 const maxNights = 30
+
+// emailDelay is how long the simulated confirmation email takes to "send".
+const emailDelay = 2 * time.Second
+
 const (
 	referenceAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I
 	referenceLength   = 8
@@ -156,9 +160,17 @@ func (s *Service) CreateBooking(ctx context.Context, req model.BookingRequest, i
 			return model.BookingResponse{}, err
 		}
 
+		go s.sendConfirmationEmail(b)
 		return model.BookingResponse{Booking: b}, nil
 	}
 	return model.BookingResponse{}, errors.New("could not generate a unique booking reference")
+}
+
+// sendConfirmationEmail simulates sending an email: it waits, then logs a
+// message. It runs in its own goroutine, so the booking response is not delayed.
+func (s *Service) sendConfirmationEmail(b model.Booking) {
+	time.Sleep(emailDelay)
+	s.logger.Info("confirmation email sent", "reference", b.Reference, "to", b.GuestEmail)
 }
 
 // Seed inserts the test data.

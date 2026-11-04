@@ -82,8 +82,43 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /v1/bookings/{reference}:
+    get:
+      summary: Look up a booking by its reference
+      description: >
+        The reference is not case sensitive and surrounding spaces are ignored,
+        so bk-0001 finds BK-0001.
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema: { type: string, example: BK-0001 }
+      responses:
+        "200":
+          description: The booking
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+        "404":
+          description: No booking with that reference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 components:
   schemas:
+    Booking:
+      type: object
+      properties:
+        reference: { type: string, example: BK-0001 }
+        hotel_id: { type: integer, format: int64, example: 1 }
+        room: { $ref: "#/components/schemas/Room" }
+        guest_name: { type: string, example: John Smith }
+        guest_email: { type: string, format: email, example: john@example.com }
+        check_in: { type: string, format: date, example: "2026-11-05" }
+        check_out: { type: string, format: date, example: "2026-11-08" }
+        nights: { type: integer, example: 3 }
+        guests: { type: integer, example: 1 }
+        created_at: { type: string, format: date-time, example: "2026-11-04T09:30:00Z" }
     Room:
       type: object
       properties:

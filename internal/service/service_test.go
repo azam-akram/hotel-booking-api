@@ -18,9 +18,6 @@ type fakeStore struct {
 
 func (f fakeStore) Ping(context.Context) error { return nil }
 
-// The methods below are not exercised by the FindHotels tests; they only make
-// fakeStore satisfy Store.
-
 func (f fakeStore) GetHotel(context.Context, int64) (model.Hotel, error) {
 	return model.Hotel{}, nil
 }
@@ -35,6 +32,10 @@ func (f fakeStore) AvailableRooms(context.Context, int64, model.Date, model.Date
 
 func (f fakeStore) FindHotels(ctx context.Context, name string) ([]model.Hotel, error) {
 	return f.findHotels(ctx, name)
+}
+
+func (f fakeStore) GetBooking(context.Context, string) (model.Booking, error) {
+	return model.Booking{}, nil
 }
 
 func TestFindHotels(t *testing.T) {

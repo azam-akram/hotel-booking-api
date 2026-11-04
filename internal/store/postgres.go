@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/azam-akram/hotel-booking-api/internal/model"
 	"github.com/jackc/pgx/v5"
@@ -84,4 +85,39 @@ func (p *Postgres) AvailableRooms(ctx context.Context, hotelID int64, checkIn, c
 		return nil, fmt.Errorf("available rooms: %w", err)
 	}
 	return rooms, nil
+}
+
+func scanBooking(row pgx.Row) (model.Booking, string, error) {
+	var (
+		b                 model.Booking
+		checkIn, checkOut time.Time
+		hash              string
+	)
+	err := row.Scan(&b.Reference,
+		&b.Room.ID, &b.Room.HotelID, &b.Room.Number, &b.Room.Type, &b.Room.Capacity,
+		&b.GuestName, &b.GuestEmail, &checkIn, &checkOut, &b.Guests, &b.CreatedAt, &hash)
+	if err != nil {
+		return model.Booking{}, "", err
+	}
+	b.HotelID = b.Room.HotelID
+	b.CheckIn, b.CheckOut = model.Date(checkIn), model.Date(checkOut)
+	b.Nights = b.CheckIn.Nights(b.CheckOut)
+	return b, hash, nil
+}
+
+const bookingSelect = `
+	SELECT b.reference, r.id, r.hotel_id, r.number, r.type, r.capacity,
+	       b.guest_name, b.guest_email, b.check_in, b.check_out, b.guests, b.created_at,
+	       COALESCE(b.request_hash, '')
+	FROM bookings b JOIN rooms r ON r.id = b.room_id`
+
+func (p *Postgres) GetBooking(ctx context.Context, reference string) (model.Booking, error) {
+	b, _, err := scanBooking(p.pool.QueryRow(ctx, bookingSelect+" WHERE b.reference = $1", reference))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Booking{}, fmt.Errorf("%w: booking %q", model.ErrNotFound, reference)
+	}
+	if err != nil {
+		return model.Booking{}, fmt.Errorf("get booking: %w", err)
+	}
+	return b, nil
 }

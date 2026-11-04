@@ -18,6 +18,7 @@ type Store interface {
 	GetHotel(ctx context.Context, id int64) (model.Hotel, error)
 	GetRoom(ctx context.Context, hotelID, roomID int64) (model.Room, error)
 	AvailableRooms(ctx context.Context, hotelID int64, checkIn, checkOut model.Date, guests int) ([]model.Room, error)
+	GetBooking(ctx context.Context, reference string) (model.Booking, error)
 }
 
 type Service struct {
@@ -79,6 +80,10 @@ func (s *Service) AvailableRooms(ctx context.Context, hotelID int64, q model.Ava
 		Guests:   q.Guests,
 		Rooms:    rooms,
 	}, nil
+}
+
+func (s *Service) GetBooking(ctx context.Context, reference string) (model.Booking, error) {
+	return s.store.GetBooking(ctx, strings.ToUpper(strings.TrimSpace(reference)))
 }
 
 func (s *Service) validateStay(checkIn, checkOut model.Date) error {

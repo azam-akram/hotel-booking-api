@@ -14,6 +14,7 @@ type BookingService interface {
 	Ping(ctx context.Context) error
 	FindHotels(ctx context.Context, name string) ([]model.Hotel, error)
 	AvailableRooms(ctx context.Context, hotelID int64, q model.AvailabilityQuery) (model.AvailableRoomsResponse, error)
+	GetBooking(ctx context.Context, reference string) (model.Booking, error)
 }
 
 type BookingHandler struct {
@@ -58,8 +59,6 @@ func (h *BookingHandler) AvailableRooms(c *gin.Context) {
 	}
 	var q model.AvailabilityQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		// Binding and validation errors are the caller's mistake, so they must be
-		// a 400. The raw error is verbose, so it goes to the log, not the response.
 		h.logger.DebugContext(c.Request.Context(), "invalid availability query", "error", err, "query", c.Request.URL.RawQuery)
 		h.respondError(c, model.Invalidf("check_in and check_out must be dates as YYYY-MM-DD, and guests must be between 1 and 10"))
 		return
@@ -70,4 +69,14 @@ func (h *BookingHandler) AvailableRooms(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+// GetBooking handles GET /bookings/:reference
+func (h *BookingHandler) GetBooking(c *gin.Context) {
+	b, err := h.svc.GetBooking(c.Request.Context(), c.Param("reference"))
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, b)
 }

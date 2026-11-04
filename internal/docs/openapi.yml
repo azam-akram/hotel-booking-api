@@ -3,7 +3,7 @@ info:
   title: Hotel Booking API
   version: 0.1.0
 servers:
-  - url: http://localhost:9000
+  - url: / # same host and port that served this page, so Swagger never calls a different origin
 paths:
   /healthcheck:
     get:
@@ -40,8 +40,68 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /v1/hotels/{hotelId}/rooms/available:
+    get:
+      summary: List rooms free for the whole stay
+      description: >
+        Returns the rooms of a hotel that can hold the given number of guests
+        and have no booking overlapping the stay. The stay is half-open, so a
+        guest may check in on the day another guest checks out.
+      parameters:
+        - name: hotelId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1, example: 1 }
+        - name: check_in
+          in: query
+          required: true
+          description: First night of the stay. Must not be in the past.
+          schema: { type: string, format: date, example: "2030-01-10" }
+        - name: check_out
+          in: query
+          required: true
+          description: Day of departure. Must be after check_in, at most 30 nights later.
+          schema: { type: string, format: date, example: "2030-01-12" }
+        - name: guests
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 10, example: 2 }
+      responses:
+        "200":
+          description: Available rooms (the list is empty when none are free)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AvailableRooms" }
+        "400":
+          description: Invalid hotelId, dates or guests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No hotel with that id
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 components:
   schemas:
+    Room:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 3 }
+        number: { type: string, example: "201" }
+        type: { type: string, enum: [single, double, deluxe], example: double }
+        capacity: { type: integer, example: 2 }
+    AvailableRooms:
+      type: object
+      properties:
+        hotel_id: { type: integer, format: int64, example: 1 }
+        check_in: { type: string, format: date, example: "2030-01-10" }
+        check_out: { type: string, format: date, example: "2030-01-12" }
+        nights: { type: integer, example: 2 }
+        guests: { type: integer, example: 2 }
+        rooms:
+          type: array
+          items: { $ref: "#/components/schemas/Room" }
     Health:
       type: object
       properties:

@@ -58,7 +58,10 @@ func (h *BookingHandler) AvailableRooms(c *gin.Context) {
 	}
 	var q model.AvailabilityQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		h.respondError(c, err)
+		// Binding and validation errors are the caller's mistake, so they must be
+		// a 400. The raw error is verbose, so it goes to the log, not the response.
+		h.logger.DebugContext(c.Request.Context(), "invalid availability query", "error", err, "query", c.Request.URL.RawQuery)
+		h.respondError(c, model.Invalidf("check_in and check_out must be dates as YYYY-MM-DD, and guests must be between 1 and 10"))
 		return
 	}
 	res, err := h.svc.AvailableRooms(c.Request.Context(), hotelID, q)

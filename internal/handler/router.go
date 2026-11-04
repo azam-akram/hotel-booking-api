@@ -14,6 +14,7 @@ func NewRouter(h *BookingHandler, log *slog.Logger) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
+	r.Use(requestLogger(log))
 	r.HandleMethodNotAllowed = true
 	r.NoRoute(notFound)
 	r.NoMethod(methodNotAllowed)
@@ -30,6 +31,7 @@ func NewRouter(h *BookingHandler, log *slog.Logger) *gin.Engine {
 
 	v1 := r.Group(apiPrefix)
 	v1.GET("/hotels", h.FindHotels)
+	v1.GET("/hotels/:hotelId/rooms/available", h.AvailableRooms)
 
 	return r
 }

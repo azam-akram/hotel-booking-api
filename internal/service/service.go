@@ -48,6 +48,7 @@ func (s *Service) FindHotels(ctx context.Context, name string) ([]model.Hotel, e
 	if err != nil {
 		return nil, err
 	}
+	s.logger.DebugContext(ctx, "hotel search", "name", name, "matches", len(hotels))
 	if len(hotels) == 0 {
 		return nil, fmt.Errorf("%w: no hotel matches %q", model.ErrNotFound, name)
 	}
@@ -65,6 +66,8 @@ func (s *Service) AvailableRooms(ctx context.Context, hotelID int64, q model.Ava
 	if err != nil {
 		return model.AvailableRoomsResponse{}, err
 	}
+	s.logger.DebugContext(ctx, "availability search", "hotel_id", hotelID,
+		"check_in", q.CheckIn.String(), "check_out", q.CheckOut.String(), "guests", q.Guests, "rooms", len(rooms))
 	if rooms == nil {
 		rooms = []model.Room{} // encode as [] rather than null
 	}

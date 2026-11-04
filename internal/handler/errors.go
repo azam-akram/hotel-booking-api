@@ -32,5 +32,14 @@ func (h *BookingHandler) respondError(c *gin.Context, err error) {
 	default:
 	}
 
+	// The response hides the cause of a 500, so the log is the only place to see it.
+	if status >= http.StatusInternalServerError {
+		h.logger.ErrorContext(c.Request.Context(), "request failed",
+			"method", c.Request.Method, "path", c.Request.URL.Path, "status", status, "error", err)
+	} else {
+		h.logger.WarnContext(c.Request.Context(), "request rejected",
+			"method", c.Request.Method, "path", c.Request.URL.Path, "status", status, "code", code, "error", err)
+	}
+
 	writeError(c, status, code, msg)
 }

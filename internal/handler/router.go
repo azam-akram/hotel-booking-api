@@ -32,6 +32,7 @@ func NewRouter(h *BookingHandler, log *slog.Logger) *gin.Engine {
 	v1 := r.Group(apiPrefix)
 	v1.GET("/hotels", h.FindHotels)
 	v1.GET("/hotels/:hotelId/rooms/available", h.AvailableRooms)
+	v1.POST("/bookings", h.CreateBooking)
 	v1.GET("/bookings/:reference", h.GetBooking)
 
 	return r

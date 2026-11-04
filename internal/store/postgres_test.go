@@ -2,17 +2,18 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/azam-akram/hotel-booking-api/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // newTestStore connects to TEST_DATABASE_URL and returns a Postgres bound to a
-// private, empty schema that holds only the hotels table. The schema is dropped
+// private, empty schema with the application tables. The schema is dropped
 // when the test ends, so existing data is never touched. The test is skipped
 // when TEST_DATABASE_URL is not set.
 func newTestStore(t *testing.T) *Postgres {
@@ -56,105 +57,76 @@ func newTestStore(t *testing.T) *Postgres {
 	}
 	t.Cleanup(pool.Close)
 
-	if _, err := pool.Exec(ctx, `
-		CREATE TABLE hotels (
-			id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-			name TEXT NOT NULL
-		)`); err != nil {
-		t.Fatalf("create hotels table: %v", err)
+	// Build the real schema from the migration so constraints match production.
+	ddl, err := os.ReadFile("../db/migrations/000001_schema.up.sql")
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(ddl)); err != nil {
+		t.Fatalf("apply migration: %v", err)
 	}
 
 	return New(pool)
 }
 
-func TestFindHotels(t *testing.T) {
+func TestCreateBooking(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	// Inserted in a non-alphabetical order to prove ORDER BY is applied.
-	for _, name := range []string{
-		"Seaside Inn",
-		"Grand Palace Hotel",
-		"Grand Palace Hotel Annex",
-		"Ocean View Resort",
-		"100% Cotton Lodge",
-	} {
-		if _, err := s.pool.Exec(ctx, `INSERT INTO hotels (name) VALUES ($1)`, name); err != nil {
-			t.Fatalf("seed %q: %v", name, err)
+	var roomID int64
+	err := s.pool.QueryRow(ctx, `
+		WITH h AS (INSERT INTO hotels (name) VALUES ('Grand Palace Hotel') RETURNING id)
+		INSERT INTO rooms (hotel_id, number, type, capacity)
+		SELECT id, '201', 'double', 2 FROM h
+		RETURNING id`).Scan(&roomID)
+	if err != nil {
+		t.Fatalf("seed room: %v", err)
+	}
+
+	day := func(s string) model.Date {
+		d, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return model.Date(d)
+	}
+	booking := func(ref, in, out string) model.Booking {
+		return model.Booking{
+			Reference: ref, Room: model.Room{ID: roomID},
+			GuestName: "Jane Doe", GuestEmail: "jane@example.com",
+			CheckIn: day(in), CheckOut: day(out), Guests: 2, CreatedAt: time.Now().UTC(),
 		}
 	}
 
+	// The cases run in order and share the database: the first booking is
+	// what the later ones collide with.
 	tests := []struct {
-		name  string
-		query string
-		want  []string // expected hotel names, in order
+		name    string
+		booking model.Booking
+		wantErr error
 	}{
-		{
-			name:  "exact match",
-			query: "Ocean View Resort",
-			want:  []string{"Ocean View Resort"},
-		},
-		{
-			name:  "match ignores case",
-			query: "oCeAn vIeW",
-			want:  []string{"Ocean View Resort"},
-		},
-		{
-			name:  "substring matches several hotels in name order",
-			query: "grand",
-			want:  []string{"Grand Palace Hotel", "Grand Palace Hotel Annex"},
-		},
-		{
-			name:  "exact match is listed before longer names",
-			query: "grand palace hotel",
-			want:  []string{"Grand Palace Hotel", "Grand Palace Hotel Annex"},
-		},
-		{
-			name:  "percent sign is literal, not a wildcard",
-			query: "%",
-			want:  []string{"100% Cotton Lodge"},
-		},
-		{
-			name:  "underscore is literal, not a wildcard",
-			query: "_",
-			want:  []string{},
-		},
-		{
-			name:  "no match returns an empty slice",
-			query: "nowhere",
-			want:  []string{},
-		},
+		{name: "creates a booking", booking: booking("ABCD2345", "2030-02-10", "2030-02-12")},
+		{name: "overlapping stay is unavailable", booking: booking("EFGH2345", "2030-02-11", "2030-02-13"), wantErr: model.ErrRoomUnavailable},
+		{name: "same reference is a duplicate", booking: booking("ABCD2345", "2030-03-01", "2030-03-03"), wantErr: model.ErrDuplicateReference},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := s.FindHotels(ctx, tt.query)
-			if err != nil {
-				t.Fatalf("FindHotels(%q) error: %v", tt.query, err)
+			err := s.CreateBooking(ctx, tt.booking, model.Idempotency{})
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
-			if got == nil {
-				t.Fatalf("FindHotels(%q) returned nil, want a non-nil slice", tt.query)
+			if tt.wantErr != nil {
+				return
 			}
 
-			names := make([]string, 0, len(got))
-			for _, h := range got {
-				if h.ID == 0 {
-					t.Errorf("hotel %q has zero ID", h.Name)
-				}
-				names = append(names, h.Name)
+			got, err := s.GetBooking(ctx, tt.booking.Reference)
+			if err != nil {
+				t.Fatalf("GetBooking: %v", err)
 			}
-			if !reflect.DeepEqual(names, tt.want) {
-				t.Errorf("FindHotels(%q) = %v, want %v", tt.query, names, tt.want)
+			if got.GuestName != "Jane Doe" || got.Room.ID != roomID || got.Nights != 2 {
+				t.Errorf("stored booking = %+v", got)
 			}
 		})
-	}
-}
-
-func TestFindHotelsReturnsErrorOnClosedPool(t *testing.T) {
-	s := newTestStore(t)
-	s.pool.Close()
-
-	if _, err := s.FindHotels(context.Background(), "grand"); err == nil {
-		t.Fatal("expected an error from a closed pool, got nil")
 	}
 }

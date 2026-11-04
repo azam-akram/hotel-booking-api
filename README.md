@@ -13,7 +13,16 @@ Built with the Gin framework and PostgreSQL, and it runs with Docker Compose. Do
 
 ## Use of AI
 
-I used an AI assistant (Claude Code) while building this. It helped with writing and reviewing code, tests, the OpenAPI spec and this README, and with debugging. I reviewed and tested what it produced and made the design decisions myself.
+I wrote the foundation of this project myself. This is visible in the git history. It includes:
+
+- the project structure
+- the router, handler and service layers
+- the GitHub Actions workflow
+- the Docker Compose setup for Postgres and pgAdmin
+- the database schema
+- the healthcheck endpoint, to test the whole call flow from request to database and back
+
+I then extended that code step by step. I used an AI assistant (Claude Code) to review and debug my code, and to write the Swagger (OpenAPI) documentation and the unit and integration tests. I reviewed and tested what it produced, and I made the design decisions myself.
 
 ## Quick start
 

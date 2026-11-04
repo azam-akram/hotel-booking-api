@@ -7,7 +7,7 @@ servers:
 paths:
   /healthcheck:
     get:
-      summary: Check the API and database are reachable
+      summary: Check the API is reachable
       responses:
         "200":
           description: OK
@@ -16,7 +16,7 @@ paths:
               schema: { $ref: "#/components/schemas/Health" }
               example: { status: ok }
         "503":
-          description: Database unreachable
+          description: system unreachable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
@@ -24,22 +24,21 @@ paths:
   /v1/hotels:
     get:
       summary: Find hotels by name
+      description: Case-insensitive search on part of the name. Surrounding spaces are ignored.
       parameters:
         - name: name
           in: query
           required: true
-          schema: { type: string, minLength: 1, maxLength: 100 }
+          schema: { type: string, example: grand }
       responses:
         "200":
           description: Matching hotels
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HotelList" }
-        "400":
-          description: Invalid input
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
   /v1/hotels/{hotelId}/rooms/available:
     get:
       summary: List rooms free for the whole stay
@@ -72,25 +71,17 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AvailableRooms" }
-        "400":
-          description: Invalid hotelId, dates or guests
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "404":
-          description: No hotel with that id
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
   /v1/bookings:
     post:
       summary: Book a room
       description: >
-        Books one room for the whole stay. The database refuses overlapping
+        Books one room for the whole stay. The API refuses overlapping
         stays, so two guests can never get the same room on the same night.
         The Idempotency-Key header is required, which makes retries safe:
-        repeating the same request returns the first booking, and the
-        confirmation email is sent only once.
+        repeating the same request returns the first booking.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -117,23 +108,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Booking" }
-        "400":
-          description: Missing Idempotency-Key header, invalid JSON, field or dates
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "404":
-          description: No such room in that hotel
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: The room is already booked for part of that stay
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "413":
-          description: Request body is too large
+          description: Request body is larger than 1 MiB
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -142,29 +125,41 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "500": { $ref: "#/components/responses/ServerError" }
   /v1/bookings/{reference}:
     get:
       summary: Look up a booking by its reference
-      description: >
-        The reference is not case sensitive and surrounding spaces are ignored,
-        so bk-0001 finds BK-0001.
+      description: The reference is not case sensitive and surrounding spaces are ignored.
       parameters:
         - name: reference
           in: path
           required: true
-          schema: { type: string, example: BK-0001 }
+          schema: { type: string, example: CX6N4GSN }
       responses:
         "200":
           description: The booking
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Booking" }
-        "404":
-          description: No booking with that reference
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
 components:
+  responses:
+    BadRequest:
+      description: Invalid or missing input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Nothing found for the given input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServerError:
+      description: Unexpected error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     BookingRequest:
       type: object
@@ -180,16 +175,16 @@ components:
     Booking:
       type: object
       properties:
-        reference: { type: string, example: BK-0001 }
+        reference: { type: string, description: "8 characters", example: CX6N4GSN }
         hotel_id: { type: integer, format: int64, example: 1 }
         room: { $ref: "#/components/schemas/Room" }
-        guest_name: { type: string, example: John Smith }
-        guest_email: { type: string, format: email, example: john@example.com }
-        check_in: { type: string, format: date, example: "2026-11-05" }
-        check_out: { type: string, format: date, example: "2026-11-08" }
-        nights: { type: integer, example: 3 }
-        guests: { type: integer, example: 1 }
-        created_at: { type: string, format: date-time, example: "2026-11-04T09:30:00Z" }
+        guest_name: { type: string, example: Jane Doe }
+        guest_email: { type: string, format: email, example: jane@example.com }
+        check_in: { type: string, format: date, example: "2031-03-10" }
+        check_out: { type: string, format: date, example: "2031-03-12" }
+        nights: { type: integer, example: 2 }
+        guests: { type: integer, example: 2 }
+        created_at: { type: string, format: date-time, example: "2031-03-01T09:30:00Z" }
     Room:
       type: object
       properties:
@@ -229,5 +224,8 @@ components:
         error:
           type: object
           properties:
-            code: { type: string, example: invalid_input }
+            code:
+              type: string
+              enum: [invalid_input, not_found, method_not_allowed, payload_too_large, room_unavailable, over_capacity, idempotency_mismatch, internal_error]
+              example: invalid_input
             message: { type: string }

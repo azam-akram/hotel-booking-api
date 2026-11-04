@@ -19,8 +19,8 @@ func (d Date) IsZero() bool {
 	return time.Time(d).IsZero()
 }
 
-func (d Date) String() string { 
-	return time.Time(d).Format(dateLayout) 
+func (d Date) String() string {
+	return time.Time(d).Format(dateLayout)
 }
 
 // Nights returns the number of nights from d (check-in) to checkOut.
@@ -41,3 +41,7 @@ func (d *Date) UnmarshalText(b []byte) error {
 	*d = Date(t)
 	return nil
 }
+
+// UnmarshalParam lets Gin read a date from a query string. Gin does not use
+// UnmarshalText for query values, so without this the dates fail to bind.
+func (d *Date) UnmarshalParam(param string) error { return d.UnmarshalText([]byte(param)) }

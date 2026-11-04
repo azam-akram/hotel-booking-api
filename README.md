@@ -36,6 +36,16 @@ Then open http://localhost:9000/docs to try the API in Swagger. Call `POST /v1/a
 
 To run the app with Go instead, see [Run locally](#run-locally).
 
+## GitHub workflow
+
+Every push to `master` and every pull request runs a GitHub Actions workflow (`.github/workflows/ci.yml`):
+
+1. **lint**, **build** and **unit tests** run in parallel.
+2. **integration tests** run against a real Postgres, once the first three pass.
+3. **docker build** builds the image, as the last step.
+
+More detail is in [CI pipeline](#ci-pipeline).
+
 ## How a request flows
 
 ```
@@ -213,11 +223,11 @@ Every push to `master` and every pull request runs the GitHub Actions workflow i
 
 ```
 lint ─┐
-build ┼─> test (integration)
+build ┼─> test (integration) ─> docker build
 test ─┘
 ```
 
-`test` here is the unit test job. The three jobs on the left are quick and don't depend on each other, so they start at the same time.
+`test` here is the unit test job. The three jobs on the left are quick and don't depend on each other, so they start at the same time. `docker build` is last: it only runs once everything else has passed.
 
 ### How it works
 
@@ -232,6 +242,7 @@ test ─┘
 | `build` | Checks `go mod tidy` leaves no changes, verifies modules, and builds everything |
 | `test` | Runs `go vet` and the unit tests with `-race` |
 | `test (integration)` | Starts Postgres 17 and runs the store tests against it |
+| `docker build` | Last step. Builds the Docker image from the `Dockerfile`, so a broken Dockerfile fails the pipeline. It doesn't push the image anywhere |
 
 ### Why not one long chain?
 

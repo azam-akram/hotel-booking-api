@@ -106,3 +106,14 @@ jobs:
       - name: Run integration tests
         run: go test -race -count=1 -v ./internal/store/
 
+  docker:
+    name: docker build
+    needs: [integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t hotel-booking-api .

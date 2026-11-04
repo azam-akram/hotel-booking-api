@@ -143,6 +143,26 @@ paths:
               schema: { $ref: "#/components/schemas/Booking" }
         "404": { $ref: "#/components/responses/NotFound" }
         "500": { $ref: "#/components/responses/ServerError" }
+  /v1/admin/seed:
+    post:
+      summary: Add test data
+      description: >
+        Adds 3 hotels with 6 rooms each, and a few bookings. Safe to call more than once.
+        Only available when ENABLE_ADMIN is true (the default).
+      responses:
+        "201":
+          description: Test data added
+        "500": { $ref: "#/components/responses/ServerError" }
+  /v1/admin/reset:
+    post:
+      summary: Remove all data
+      description: >
+        Deletes all hotels, rooms and bookings, ready for seeding. The tables are kept.
+        Only available when ENABLE_ADMIN is true (the default).
+      responses:
+        "204":
+          description: All data removed
+        "500": { $ref: "#/components/responses/ServerError" }
 components:
   responses:
     BadRequest:

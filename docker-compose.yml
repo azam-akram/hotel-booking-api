@@ -1,4 +1,17 @@
 services:
+  hotel_booking_api:
+    build: .
+    ports:
+      - "9000:9000"
+    environment:
+      PORT: "9000"
+      DATABASE_URL: postgres://roomuser:password1@postgres:5432/roomdb?sslmode=disable
+      LOG_LEVEL: info
+      ENABLE_ADMIN: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:17-alpine
     environment:

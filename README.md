@@ -1,16 +1,31 @@
 # Hotel Booking API
 
-A RESTful hotel room booking API written in Go. 
+A RESTful hotel room booking API written in Go.
 
-It lets 
+It lets a consumer
 
-- a consumer find a hotel by name
+- find a hotel by name
 - search for rooms available between two dates for a number of guests
 - book a room
 - look up a booking by its reference.
 
-Built with Gin framework and PostgreSQL, and it runs locally with Docker Compose. Double bookings are prevented by the database, and each booking triggers a simulated confirmation email (e.g., logging a message
-to the console after a 2-second delay using a goroutine) in a background goroutine.
+Built with the Gin framework and PostgreSQL, and it runs with Docker Compose. Double bookings are prevented by the database. Each new booking starts a background goroutine that waits 2 seconds and then logs a message, to simulate sending a confirmation email.
+
+## Use of AI
+
+I used an AI assistant (Claude Code) while building this. It helped with writing and reviewing code, tests, the OpenAPI spec and this README, and with debugging. I reviewed and tested what it produced and made the design decisions myself.
+
+## Quick start
+
+You only need Docker:
+
+```
+docker compose up --build
+```
+
+Then open http://localhost:9000/docs to try the API in Swagger. Call `POST /v1/admin/seed` first to add test data.
+
+To run the app with Go instead, see [Run locally](#run-locally).
 
 ## How a request flows
 
@@ -97,19 +112,23 @@ The app works without any setup. To change something, set an environment variabl
 
 ### Add test data
 
-Start the app once first, so the tables exist. Then:
+Start the app first, so the tables exist. Then:
 
 ```
-docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/seed.sql
+curl -X POST http://localhost:9000/v1/admin/seed
 ```
+
+This adds 3 hotels with 6 rooms each, and a few bookings. It is safe to call more than once. You can also do it from Swagger.
 
 ### Remove test data
 
 Removes all data and restarts ids, ready for seeding. The tables are kept.
 
 ```
-docker compose exec -T postgres psql -U roomuser -d roomdb -v ON_ERROR_STOP=1 < internal/db/seeds/reset.sql
+curl -X POST http://localhost:9000/v1/admin/reset
 ```
+
+Both endpoints can be turned off with `ENABLE_ADMIN=false`, which is what you would do anywhere real data lives. The SQL they run is in `internal/db/seeds/`.
 
 ### Start again from an empty database
 
@@ -124,7 +143,7 @@ Please don't run `internal/db/migrations/000001_schema.down.sql` by hand to do t
 
 ### Database admin UI (optional)
 
-`docker compose up -d` also starts pgAdmin at http://localhost:5050 (login `admin@example.com` / `admin`, local use only). Postgres is on port `5433` from your machine, and `5432` from inside Docker.
+`docker compose up -d` also starts the app and pgAdmin. pgAdmin is at http://localhost:5050 (login `admin@example.com` / `admin`, local use only). Postgres is on port `5433` from your machine, and `5432` from inside Docker.
 
 ## Before you push
 
@@ -156,78 +175,28 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
 ## Tests
 
-Right now the tests cover the "find a hotel by name" feature (`GET /v1/hotels?name=`). The feature has three layers, and each layer has its own test. Every test checks one thing the other layers can't.
+The tests are kept small on purpose. Right now they cover booking a room (`POST /v1/bookings`) in each layer:
 
-```
-HTTP request -> handler -> service -> store -> Postgres
-```
+| Layer | File | What it checks |
+|---|---|---|
+| Handler (unit) | `internal/handler/handler_test.go` | A new booking gives `201` with a `Location` header. A missing `Idempotency-Key` gives `400`. A room that is already booked gives `409`. Uses a fake service. |
+| Service (unit) | `internal/service/service_test.go` | A booking is created and saved. Too many guests, a check-in in the past, and a room that is already booked are rejected. Uses a fake store. |
+| Store (integration) | `internal/store/postgres_test.go` | Against a real Postgres: a booking is saved, an overlapping stay is refused, and a repeated reference is refused. |
 
-### Run them
-
-Unit tests (no database needed):
+Unit tests need nothing else:
 
 ```
 go test ./...
 ```
 
-Integration test for the store (needs Postgres):
+The store test needs Postgres. It builds the real schema in a temporary schema and drops it afterwards, so your dev data is not touched:
 
 ```
 docker compose up -d postgres
 TEST_DATABASE_URL="postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable" go test ./internal/store/
 ```
 
-If `TEST_DATABASE_URL` is not set, the store tests are skipped, so `go test ./...` still passes on a machine without a database.
-
-### Handler tests (unit)
-
-File: `internal/handler/handler_test.go`
-
-The handler is the thin layer between HTTP and our code. It reads the query, calls the service, and turns the result into JSON or an error response. The test uses a fake service, so no real logic or database is involved.
-
-What it checks:
-
-- a good result gives `200` and `{"hotels": [...]}`
-- the `name` from the URL reaches the service untouched
-- an "invalid input" error gives `400`, "not found" gives `404`, and anything unexpected gives `500`
-- a `500` shows a generic message, so internal details like a database address never leak to the caller
-
-Why: if someone changes how errors map to status codes, we want to know straight away. These tests are fast and never flaky.
-
-### Service tests (unit)
-
-File: `internal/service/service_test.go`
-
-The service holds the business rules. The test uses a fake store, so again no database.
-
-What it checks:
-
-- spaces around the name are trimmed (`"  Grand Palace "` becomes `"Grand Palace"`)
-- an empty or blank name is rejected as invalid, and the store is never called
-- an empty or `nil` result from the store becomes a "not found" error
-- a store error is passed back as it is
-
-Why: these are the rules of the feature. The "store is never called" checks matter too. A bad request shouldn't cost a database trip.
-
-### Store test (integration)
-
-File: `internal/store/postgres_test.go`
-
-The store runs the SQL. A fake database here would only prove that our fake works, so this test talks to a real Postgres.
-
-It does not touch your dev data. Each run creates a temporary schema with a small `hotels` table, runs the test inside it, and drops it afterwards.
-
-What it checks:
-
-- exact match, and matching that ignores upper and lower case
-- partial match (`grand` finds `Grand Palace Hotel`), sorted by name
-- an exact match comes before longer names that only contain the text
-- `%` and `_` in the search text are plain characters, not wildcards (that is why the query uses `strpos` and not `LIKE`)
-- no match returns an empty list, so the JSON is `[]` and not `null`
-- a closed connection returns an error
-
-Why: the SQL is the part most likely to be wrong, and only a real database can tell us. Keeping it separate from the unit tests means the fast tests stay fast.
-
+If `TEST_DATABASE_URL` is not set, the store test is skipped, so `go test ./...` still passes on a machine without a database.
 
 ## CI pipeline
 

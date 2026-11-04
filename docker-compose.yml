@@ -5,7 +5,7 @@ services:
       - "9000:9000"
     environment:
       PORT: "9000"
-      DATABASE_URL: postgres://roomuser:password1@postgres:5432/roomdb?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-roomuser}:${POSTGRES_PASSWORD:-password1}@postgres:5432/${POSTGRES_DB:-roomdb}?sslmode=disable
       LOG_LEVEL: info
       ENABLE_ADMIN: "true"
     depends_on:
@@ -15,15 +15,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: roomuser
-      POSTGRES_PASSWORD: password1
-      POSTGRES_DB: roomdb
+      POSTGRES_USER: ${POSTGRES_USER:-roomuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password1}
+      POSTGRES_DB: ${POSTGRES_DB:-roomdb}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U roomuser -d roomdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-roomuser} -d ${POSTGRES_DB:-roomdb}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,8 +32,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
       - "5050:80"
     volumes:

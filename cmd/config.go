@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,12 +18,13 @@ type config struct {
 	enableAdmin bool
 }
 
-const defaultDatabaseURL = "postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable"
-
 func loadConfig() (config, error) {
 	cfg := config{
 		port:        getenv("PORT", defaultPort),
-		databaseURL: getenv("DATABASE_URL", defaultDatabaseURL),
+		databaseURL: getenv("DATABASE_URL", ""),
+	}
+	if cfg.databaseURL == "" {
+		return config{}, errors.New("DATABASE_URL is required, for example postgres://user:password@localhost:5432/dbname?sslmode=disable")
 	}
 	logLevel := getenv("LOG_LEVEL", "INFO")
 

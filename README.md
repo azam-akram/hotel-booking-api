@@ -25,7 +25,7 @@ This is a coding challenge, not a production system. These are the things I left
 - **A real confirmation email.** The email is only a log line after 2 seconds. A real one would use a queue with retries, so an email isn't lost if the server stops while it is waiting.
 - **Cleaning up idempotency keys.** A key is kept forever. Real systems expire them after some time.
 - **Metrics and tracing.** There is structured logging and a health check, but no metrics or distributed tracing.
-- **Real secrets.** The database password in `docker-compose.yml` and the pgAdmin login are for local use only. A real deployment would load secrets from a secret store.
+- **Real secrets.** The database password and the pgAdmin login in `docker-compose.yml`, `.env.example` and `.github/workflows/ci.yml` are throwaway values for local development and for the temporary database used in CI. In production, passwords must not be written in the repository. They should be kept in `.env` files that are not committed, or better in GitHub (Actions secrets and environment secrets) or the hosting platform's secret store, and passed to the app as environment variables such as `DATABASE_URL`. See [Production secrets](#production-secrets).
 
 ## Use of AI
 
@@ -98,21 +98,17 @@ You need Go (the version in `go.mod`) and Docker.
    docker compose up -d postgres
    ```
 
-2. Run the app:
-
-   ```
-   go run ./cmd
-   ```
-
-   To change the log level or turn the admin endpoints on or off, set the variables first (see [Settings](#settings)):
+2. Run the app. It needs `DATABASE_URL`, which has no default. This value matches `docker-compose.yml`:
 
    ```
    # Git Bash / macOS / Linux
-   LOG_LEVEL=DEBUG ENABLE_ADMIN=true go run ./cmd
+   DATABASE_URL="postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable" go run ./cmd
 
    # PowerShell
-   $env:LOG_LEVEL = "DEBUG"; $env:ENABLE_ADMIN = "true"; go run ./cmd
+   $env:DATABASE_URL = "postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable"; go run ./cmd
    ```
+
+   To also change the log level or turn the admin endpoints on or off, set `LOG_LEVEL` and `ENABLE_ADMIN` the same way (see [Settings](#settings)).
 
    On startup the app creates the tables itself (it applies the files in `internal/db/migrations`), so there is no separate "create tables" step. The app exits with an error if it can't reach the database.
 
@@ -136,12 +132,12 @@ curl "http://localhost:9000/v1/hotels?name=grand"
 
 ### Settings
 
-The app works without any setup. To change something, set an environment variable:
+The app is configured with environment variables. Only `DATABASE_URL` is required:
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `9000` | Port the API listens on |
-| `DATABASE_URL` | `postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable` | Postgres connection string. The default matches `docker-compose.yml` |
+| `DATABASE_URL` | none, **required** | Postgres connection string, for example `postgres://roomuser:password1@localhost:5433/roomdb?sslmode=disable` (this one matches `docker-compose.yml`). The app exits at startup if it is missing |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` or `ERROR` |
 | `ENABLE_ADMIN` | `true` | `true` or `false`. Turns on `POST /v1/admin/seed` (add test data) and `POST /v1/admin/reset` (delete all data). Set it to `false` anywhere real data lives. The app won't start if the value isn't a valid true/false |
 
@@ -178,7 +174,20 @@ Please don't run `internal/db/migrations/000001_schema.down.sql` by hand to do t
 
 ### Database admin UI (optional)
 
-`docker compose up -d` also starts the app and pgAdmin. pgAdmin is at http://localhost:5050 (login `admin@example.com` / `admin`, local use only). Postgres is on port `5433` from your machine, and `5432` from inside Docker.
+`docker compose up -d` also starts the app and pgAdmin. pgAdmin is at http://localhost:5050 (default login `admin@example.com` / `admin`, local use only). Postgres is on port `5433` from your machine, and `5432` from inside Docker.
+
+### Change the database or pgAdmin passwords
+
+The passwords live in a `.env` file, which Docker Compose reads automatically. `.env` is not committed. Without it, `docker-compose.yml` uses the same defaults as `.env.example`, so everything works with no setup. To change a value:
+
+```
+cp .env.example .env
+# edit .env, then:
+docker compose up -d
+```
+
+Postgres only reads its password the first time it creates the database volume, so after changing `POSTGRES_PASSWORD` run `docker compose down -v` first (this deletes the data). If you run the app with `go run` instead of Docker, set `DATABASE_URL` to match.
+
 
 ## Before you push
 
@@ -207,6 +216,15 @@ Install the linter with the same version CI uses (`v2.14.0` in `ci.yml`):
 ```
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 ```
+
+## Production secrets
+
+The passwords in this repository are for local development and tests only:
+
+- `docker-compose.yml` and `.env.example` hold the local Postgres and pgAdmin defaults.
+- `.github/workflows/ci.yml` uses a throwaway Postgres container that exists only for the length of one CI run.
+
+In production, passwords should **not** be written in files in the repository. Keep them in a `.env` file that is not committed (this repo's `.gitignore` already ignores `.env`), or better in GitHub secrets. Use Actions secrets for CI and environment secrets for deployments, or the secret store of the platform the app runs on. They reach the app as environment variables such as `DATABASE_URL`. Also use a long random password, and rotate it if it has ever been committed.
 
 ## Tests
 

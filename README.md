@@ -13,9 +13,9 @@ Built with the Gin framework and PostgreSQL, and it runs with Docker Compose. Do
 
 ## What this API doesn't have
 
-This is a coding challenge, not a production system. These are the things I left out on purpose, and what a real version would need:
+This is a coding excercise, not a production system. These are the things I left out on purpose, and what a real version would need:
 
-- **Authentication and authorization.** The brief says no authentication is needed, so every endpoint is open. That includes `POST /v1/admin/reset`, which deletes all data. A production API should be protected in several layers (for example tokens, roles, and keeping admin endpoints off the public network), and the admin endpoints should not exist there at all. `ENABLE_ADMIN=false` switches them off.
+- **Authentication and authorization.** There is no authentication in place, so every endpoint is open. That includes `POST /v1/admin/reset`, which deletes all data. A production API should be protected in several layers (for example tokens, roles, and keeping admin endpoints off the public network), and the admin endpoints should not exist there at all. `ENABLE_ADMIN=false` switches them off.
 - **Security headers.** Responses don't carry the recommended HTTP security headers. A production API should follow the [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
 - **HTTPS.** The app speaks plain HTTP. In production it would sit behind a proxy or load balancer that handles TLS.
 - **Rate limiting.** Nothing stops a client from sending a flood of requests.

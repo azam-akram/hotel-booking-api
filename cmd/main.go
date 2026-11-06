@@ -44,7 +44,6 @@ func run(cfg config, log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// The database URL is left out on purpose because it contains the password.
 	log.Info("starting", "port", cfg.port, "log_level", cfg.logLevel.String())
 
 	log.Info("applying database migrations")
